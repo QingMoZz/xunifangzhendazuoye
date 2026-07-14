@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(CharacterController))]
@@ -7,39 +5,55 @@ public class Player : MonoBehaviour
 {
     [Header("移动设置")]
     public float moveSpeed = 5f;
-    public float gravity = -9.81f;
-    public float jumpHeight = 1.5f;
+    public float rotationSpeed = 10f;
+    public Transform cameraTransform;
 
     private CharacterController controller;
-    private Vector3 velocity;
 
     // Start is called before the first frame update
     void Start()
     {
         controller = GetComponent<CharacterController>();
+
+        if (cameraTransform == null && Camera.main != null)
+        {
+            cameraTransform = Camera.main.transform;
+        }
     }
 
     // Update is called once per frame
     void Update()
     {
-        bool isGrounded = controller.isGrounded;
-        if (isGrounded && velocity.y < 0f)
-        {
-            velocity.y = 0f;
-        }
-
         float horizontal = Input.GetAxis("Horizontal");
         float vertical = Input.GetAxis("Vertical");
 
-        Vector3 move = transform.right * horizontal + transform.forward * vertical;
-        controller.Move(move * moveSpeed * Time.deltaTime);
+        Vector3 forward = transform.forward;
+        Vector3 right = transform.right;
 
-        if (Input.GetButtonDown("Jump") && isGrounded)
+        if (cameraTransform != null)
         {
-            velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            forward = cameraTransform.forward;
+            forward.y = 0f;
+            forward.Normalize();
+
+            right = cameraTransform.right;
+            right.y = 0f;
+            right.Normalize();
         }
 
-        velocity.y += gravity * Time.deltaTime;
-        controller.Move(velocity * Time.deltaTime);
+        Vector3 move = forward * vertical + right * horizontal;
+        move = Vector3.ClampMagnitude(move, 1f);
+
+        if (move.sqrMagnitude > 0.001f)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(move);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRotation,
+                rotationSpeed * Time.deltaTime
+            );
+        }
+
+        controller.SimpleMove(move * moveSpeed);
     }
 }
