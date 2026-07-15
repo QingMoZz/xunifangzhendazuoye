@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class PlayerCamera : MonoBehaviour
@@ -6,7 +7,7 @@ public class PlayerCamera : MonoBehaviour
     public Transform target;
     public Vector3 offset = new Vector3(0f, 3f, -5f);
     public Vector3 lookAtOffset = new Vector3(0f, 1f, 0f);
-    public float followSpeed = 5f;
+    public float followSpeed = 10f;
 
     [Header("视角设置")]
     public float mouseSensitivity = 3f;
@@ -24,6 +25,7 @@ public class PlayerCamera : MonoBehaviour
     private float yaw;
     private float pitch;
     private float distance;
+    private bool isCursorFree;
 
     void Start()
     {
@@ -34,16 +36,28 @@ public class PlayerCamera : MonoBehaviour
             {
                 target = player.transform;
             }
+            else
+            {
+                GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+                if (playerObject != null)
+                {
+                    target = playerObject.transform;
+                }
+            }
         }
 
-        distance = Mathf.Max(offset.magnitude, 0.1f);
-        Vector3 initialAngles = Quaternion.LookRotation(-offset.normalized).eulerAngles;
-        yaw = initialAngles.y;
-        pitch = initialAngles.x > 180f
-            ? initialAngles.x - 360f
-            : initialAngles.x;
+        distance = Mathf.Clamp(offset.magnitude, minDistance, maxDistance);
+        InitializeOrbitAngles();
 
-        SetCursorLocked(lockCursor);
+        if (target != null)
+        {
+            SnapToTarget();
+        }
+
+        if (lockCursor)
+        {
+            StartCoroutine(LockCursorDelayed());
+        }
     }
 
     void LateUpdate()
@@ -53,14 +67,7 @@ public class PlayerCamera : MonoBehaviour
             return;
         }
 
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            SetCursorLocked(false);
-        }
-        else if (lockCursor && Input.GetMouseButtonDown(0))
-        {
-            SetCursorLocked(true);
-        }
+        HandleCursorLock();
 
         if (Cursor.lockState == CursorLockMode.Locked)
         {
@@ -72,24 +79,83 @@ public class PlayerCamera : MonoBehaviour
         }
 
         float scroll = Input.GetAxis("Mouse ScrollWheel");
-        distance -= scroll * zoomSpeed;
-        distance = Mathf.Clamp(distance, minDistance, maxDistance);
+        if (Mathf.Abs(scroll) > 0.001f)
+        {
+            distance -= scroll * zoomSpeed;
+            distance = Mathf.Clamp(distance, minDistance, maxDistance);
+        }
 
-        Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
         Vector3 focusPoint = target.position + lookAtOffset;
-        Vector3 targetPosition = focusPoint + rotation * Vector3.back * distance;
+        Quaternion orbitRotation = Quaternion.Euler(pitch, yaw, 0f);
+        Vector3 desiredPosition = focusPoint + orbitRotation * Vector3.back * distance;
 
         transform.position = Vector3.Lerp(
             transform.position,
-            targetPosition,
+            desiredPosition,
             followSpeed * Time.deltaTime
         );
-        transform.LookAt(focusPoint);
+        transform.rotation = Quaternion.LookRotation(focusPoint - transform.position);
+    }
+
+    private void InitializeOrbitAngles()
+    {
+        Vector3 orbitOffset = offset;
+        if (orbitOffset.sqrMagnitude < 0.001f)
+        {
+            orbitOffset = new Vector3(0f, 3f, -5f);
+        }
+
+        float horizontalDistance = new Vector2(orbitOffset.x, orbitOffset.z).magnitude;
+        yaw = Mathf.Atan2(orbitOffset.x, orbitOffset.z) * Mathf.Rad2Deg;
+        pitch = Mathf.Atan2(orbitOffset.y, horizontalDistance) * Mathf.Rad2Deg;
+        pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
+    }
+
+    private void SnapToTarget()
+    {
+        Vector3 focusPoint = target.position + lookAtOffset;
+        Quaternion orbitRotation = Quaternion.Euler(pitch, yaw, 0f);
+        transform.position = focusPoint + orbitRotation * Vector3.back * distance;
+        transform.rotation = Quaternion.LookRotation(focusPoint - transform.position);
+    }
+
+    private void HandleCursorLock()
+    {
+        if (!lockCursor)
+        {
+            return;
+        }
+
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            isCursorFree = true;
+            SetCursorLocked(false);
+            return;
+        }
+
+        if (Input.GetMouseButtonDown(0))
+        {
+            isCursorFree = false;
+        }
+
+        if (!isCursorFree)
+        {
+            SetCursorLocked(true);
+        }
+    }
+
+    private IEnumerator LockCursorDelayed()
+    {
+        yield return null;
+        if (lockCursor && !isCursorFree)
+        {
+            SetCursorLocked(true);
+        }
     }
 
     private void OnApplicationFocus(bool hasFocus)
     {
-        if (hasFocus && lockCursor)
+        if (hasFocus && lockCursor && !isCursorFree)
         {
             SetCursorLocked(true);
         }

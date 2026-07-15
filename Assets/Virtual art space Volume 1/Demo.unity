@@ -4490,7 +4490,7 @@ Animation:
   m_GameObject: {fileID: 934122782}
   m_Enabled: 1
   serializedVersion: 3
-  m_Animation: {fileID: 7400000, guid: dd7ad16d8c4323f45a67657f0d737e65, type: 3}
+  m_Animation: {fileID: 7400000, guid: d8822a1788f3c1248a0fec5f93ca1749, type: 3}
   m_Animations:
   - {fileID: 7400000, guid: dd7ad16d8c4323f45a67657f0d737e65, type: 3}
   - {fileID: 7400000, guid: d8822a1788f3c1248a0fec5f93ca1749, type: 3}
@@ -5507,9 +5507,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: fa7114ef303b49545b3ba3bd7f126219, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 5
+  moveSpeed: 2
   rotationSpeed: 10
   cameraTransform: {fileID: 0}
+  idleAnimation: wait
+  runAnimation: run
 --- !u!1 &934122832
 GameObject:
   m_ObjectHideFlags: 0
